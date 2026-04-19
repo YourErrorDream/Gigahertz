@@ -1,5 +1,6 @@
 package com.player.gigahertz;
 
+import com.player.gigahertz.network.ModNetwork;
 import com.player.gigahertz.registry.ModBlocks;
 import com.player.gigahertz.registry.ModItems;
 import com.player.gigahertz.registry.ModSounds;
@@ -11,13 +12,13 @@ import org.apache.logging.log4j.Logger;
 
 @Mod(Gigahertz.MODID)
 public class Gigahertz {
-    public static final String MODID = "assets/gigahertz";
+    // THE FIX: was "assets/gigahertz" — that slash made Forge treat it as a path
+    public static final String MODID = "gigahertz";
     public static final Logger LOGGER = LogManager.getLogger();
 
     public Gigahertz() {
         var bus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // Регистрируем все DeferredRegister'ы
         ModItems.register(bus);
         ModBlocks.register(bus);
         ModSounds.register(bus);
@@ -28,6 +29,8 @@ public class Gigahertz {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
+        // enqueueWork ensures thread-safe registration
+        event.enqueueWork(ModNetwork::register);
         LOGGER.info("Gigahertz common setup complete.");
     }
 }

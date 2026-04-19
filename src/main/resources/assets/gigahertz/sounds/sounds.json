@@ -1,0 +1,10 @@
+{
+  "radio_static": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "gigahertz:radio_static"
+      }
+    ]
+  }
+}

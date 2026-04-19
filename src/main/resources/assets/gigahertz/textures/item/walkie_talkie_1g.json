@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "gigahertz:item/walkie_talkie_1g"
+  }
+}

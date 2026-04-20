@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " I ",
+    "IRI",
+    "IBI"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "R": { "item": "minecraft:redstone_block" },
+    "B": { "item": "minecraft:iron_block" }
+  },
+  "result": {
+    "item": "gigahertz:antenna_tower_1g",
+    "count": 1
+  }
+}

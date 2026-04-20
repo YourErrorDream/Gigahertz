@@ -1,0 +1,6 @@
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "gigahertz:block/antenna_tower_1g"
+  }
+}

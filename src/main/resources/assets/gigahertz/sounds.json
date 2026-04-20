@@ -3,7 +3,8 @@
     "category": "player",
     "sounds": [
       {
-        "name": "gigahertz:radio_static"
+        "name": "gigahertz:radio_static",
+        "stream": false
       }
     ]
   }

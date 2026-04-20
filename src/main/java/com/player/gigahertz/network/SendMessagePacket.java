@@ -1,13 +1,13 @@
 package com.player.gigahertz.network;
 
-import com.player.gigahertz.registry.ModBlocks;
 import com.player.gigahertz.registry.ModSounds;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.List;
@@ -16,12 +16,7 @@ import java.util.function.Supplier;
 
 public class SendMessagePacket {
 
-    private static final int MAX_LENGTH   = 256;
-    private static final int DIRECT_RANGE = 32;   // Direct Mode: без башни
-    private static final int TOWER_SEARCH = 64;   // Радиус поиска башни вокруг отправителя
-    private static final int TOWER_BROADCAST = 64; // Радиус вещания башни
-    // Ограничение по высоте при поиске башни (±32 блока по Y — разумно для любой постройки)
-    private static final int TOWER_SEARCH_Y = 32;
+    private static final int MAX_LENGTH = 256;
 
     private final String message;
 
@@ -49,26 +44,36 @@ public class SendMessagePacket {
             if (msg.length() > MAX_LENGTH) msg = msg.substring(0, MAX_LENGTH);
 
             final String finalMsg = msg;
-            var level = sender.serverLevel();
+            ServerLevel level = sender.serverLevel();
             BlockPos senderPos = sender.blockPosition();
 
-            // Ищем ближайшую башню 1G в радиусе TOWER_SEARCH блоков от отправителя
-            Optional<BlockPos> tower = findNearestTower(level, senderPos);
+            Optional<BlockPos> tower = TowerUtils.findNearestTower(level, senderPos);
 
             List<ServerPlayer> recipients;
             String modeTag;
 
             if (tower.isPresent()) {
-                // Режим ретрансляции: вещаем от башни на TOWER_BROADCAST блоков
-                BlockPos towerPos = tower.get();
+                BlockPos tp = tower.get();
+
+                // === ЧАСТИЦЫ НАД БАШНЕЙ ===
+                // Электрические искры — основной эффект передачи
+                level.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+                        tp.getX() + 0.5, tp.getY() + 1.2, tp.getZ() + 0.5,
+                        20, 0.45, 0.4, 0.45, 0.04);
+                // Светящиеся частицы, поднимающиеся вверх — "сигнал уходит в эфир"
+                level.sendParticles(ParticleTypes.END_ROD,
+                        tp.getX() + 0.5, tp.getY() + 1.0, tp.getZ() + 0.5,
+                        6, 0.2, 0.05, 0.2, 0.12);
+
                 recipients = level.players().stream()
-                        .filter(p -> p.blockPosition().distSqr(towerPos) <= (long) TOWER_BROADCAST * TOWER_BROADCAST)
+                        .filter(p -> p.blockPosition().distSqr(tp)
+                                <= (double) TowerUtils.TOWER_BROADCAST * TowerUtils.TOWER_BROADCAST)
                         .toList();
                 modeTag = "§8[§21G§8][§aTower§8]";
             } else {
-                // Direct Mode: 32 блока от отправителя
                 recipients = level.players().stream()
-                        .filter(p -> p.distanceToSqr(sender) <= (double) DIRECT_RANGE * DIRECT_RANGE)
+                        .filter(p -> p.distanceToSqr(sender)
+                                <= (double) TowerUtils.DIRECT_RANGE * TowerUtils.DIRECT_RANGE)
                         .toList();
                 modeTag = "§8[§21G§8][§7Direct§8]";
             }
@@ -79,49 +84,15 @@ public class SendMessagePacket {
 
             for (ServerPlayer player : recipients) {
                 player.sendSystemMessage(broadcast);
-                level.playSound(
-                        null,
+                level.playSound(null,
                         player.blockPosition(),
                         ModSounds.RADIO_STATIC.get(),
                         SoundSource.PLAYERS,
                         0.5f,
-                        0.85f + level.random.nextFloat() * 0.3f
-                );
+                        0.85f + level.random.nextFloat() * 0.3f);
             }
         });
 
         ctx.setPacketHandled(true);
-    }
-
-    /**
-     * Ищет ближайший блок AntennaTower1G в кубическом регионе вокруг center.
-     * Y-диапазон ограничен ±TOWER_SEARCH_Y для производительности.
-     * Горизонтальный радиус — TOWER_SEARCH блоков (по сфере, не кубу).
-     */
-    private static Optional<BlockPos> findNearestTower(
-            net.minecraft.server.level.ServerLevel level, BlockPos center) {
-
-        BlockPos best = null;
-        double bestDist = Double.MAX_VALUE;
-        double maxDistSq = (double) TOWER_SEARCH * TOWER_SEARCH;
-
-        // Итерируем только загруженные чанки — башня в незагруженном чанке не работает (исторически верно: связь требует активной вышки)
-        for (BlockPos pos : BlockPos.betweenClosed(
-                center.offset(-TOWER_SEARCH, -TOWER_SEARCH_Y, -TOWER_SEARCH),
-                center.offset( TOWER_SEARCH,  TOWER_SEARCH_Y,  TOWER_SEARCH))) {
-
-            if (!level.isLoaded(pos)) continue;
-
-            BlockState state = level.getBlockState(pos);
-            if (!state.is(ModBlocks.ANTENNA_TOWER_1G.get())) continue;
-
-            double dist = pos.distSqr(center);
-            if (dist <= maxDistSq && dist < bestDist) {
-                bestDist = dist;
-                best = pos.immutable();
-            }
-        }
-
-        return Optional.ofNullable(best);
     }
 }
